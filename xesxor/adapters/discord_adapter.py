@@ -351,8 +351,12 @@ class DiscordAdapter(commands.Bot):
         import inspect as _inspect
         from typing import Optional as _Optional
 
-        async def _callback(interaction: discord.Interaction) -> None:
-            await self._dispatch(spec, interaction)
+        async def _callback(
+            interaction: discord.Interaction, **kwargs: Any
+        ) -> None:
+            # discord.py invokes this with the transformed slash options as
+            # keyword arguments; forward them into the shared dispatch layer.
+            await self._dispatch(spec, interaction, kwargs)
 
         _callback.__name__ = f"cmd_{spec.name.replace('-', '_')}"
 
@@ -420,7 +424,12 @@ class DiscordAdapter(commands.Bot):
     # ------------------------------------------------------------------
     # Command dispatch
     # ------------------------------------------------------------------
-    async def _dispatch(self, spec: CommandSpec, interaction: discord.Interaction) -> None:
+    async def _dispatch(
+        self,
+        spec: CommandSpec,
+        interaction: discord.Interaction,
+        options: Optional[dict[str, Any]] = None,
+    ) -> None:
         try:
             if spec.admin_only and interaction.guild:
                 if not interaction.user.guild_permissions.administrator:  # type: ignore[union-attr]
@@ -428,7 +437,7 @@ class DiscordAdapter(commands.Bot):
             if spec.guild_only and interaction.guild is None:
                 raise CommandError("This command can only be used inside a server.")
 
-            args = self._extract_args(spec, interaction)
+            args = self._extract_args(spec, interaction, options or {})
             ctx = self._build_context(spec, interaction)
             await spec.handler(ctx, args)
         except CommandError as exc:
@@ -441,17 +450,29 @@ class DiscordAdapter(commands.Bot):
                 interaction, "⚠️ Something went wrong while running this command. Please try again."
             )
 
-    def _extract_args(self, spec: CommandSpec, interaction: discord.Interaction) -> dict[str, Any]:
-        raw_options = {
-            opt["name"]: opt["value"] for opt in (interaction.data or {}).get("options", [])
-        }
+    def _extract_args(
+        self,
+        spec: CommandSpec,
+        interaction: discord.Interaction,
+        options: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        # Prefer the transformed options discord.py already passed to the
+        # callback (they resolve users to Member/User objects); fall back to
+        # the raw interaction payload when called without them.
+        raw_options: dict[str, Any] = dict(options or {})
+        if not raw_options:
+            raw_options = {
+                opt["name"]: opt["value"]
+                for opt in (interaction.data or {}).get("options", [])
+            }
         args: dict[str, Any] = {}
         for param in spec.params:
             if param.name not in raw_options:
                 continue
             value = raw_options[param.name]
             if param.type == "user":
-                args[param.name] = self._resolve_user(interaction, int(value))
+                uid = value.id if isinstance(value, (discord.Member, discord.User)) else int(value)
+                args[param.name] = self._resolve_user(interaction, int(uid))
             elif param.type == "int":
                 args[param.name] = int(value)
             elif param.type == "float":
