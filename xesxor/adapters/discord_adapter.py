@@ -314,6 +314,7 @@ class DiscordAdapter(commands.Bot):
         self._voice_starts: dict[int, float] = {}
         self._web_runner: Optional[web.AppRunner] = None
         self._background_tasks: list[asyncio.Task] = []
+        self._commands_synced = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -392,6 +393,29 @@ class DiscordAdapter(commands.Bot):
                     for label, value in param.choices
                 ]
         return command
+
+    async def _sync_commands(self) -> None:
+        """Push the compiled command tree to Discord.
+
+        Without this, Discord keeps whatever command signatures it last saw
+        (e.g. from the v1 bot) and every invocation fails with
+        ``CommandSignatureMismatch``.  Guild-scoped sync is applied per guild
+        so updates appear immediately, then a global sync covers DMs and any
+        future guilds.
+        """
+        try:
+            for guild in self.guilds:
+                self.tree.copy_global_to(guild=guild)
+                synced = await self.tree.sync(guild=guild)
+                logger.info(
+                    "Synced %d slash commands to guild %s.", len(synced), guild.id
+                )
+            global_synced = await self.tree.sync()
+            logger.info(
+                "Synced %d slash commands globally.", len(global_synced)
+            )
+        except Exception as exc:  # pragma: no cover - network/defensive
+            logger.error("Slash command sync failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Command dispatch
@@ -739,6 +763,9 @@ class DiscordAdapter(commands.Bot):
     # ------------------------------------------------------------------
     async def on_ready(self) -> None:
         logger.info("Discord logged in as %s (%d guilds)", self.user, len(self.guilds))
+        if not self._commands_synced:
+            self._commands_synced = True
+            asyncio.create_task(self._sync_commands())
         for guild in self.guilds:
             try:
                 self.invite_cache[guild.id] = await guild.invites()
