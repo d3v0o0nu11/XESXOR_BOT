@@ -1,13 +1,14 @@
 # XESXOR Bot
 
-Free, open-source, multi-platform community bot for **Discord and Telegram**
+Free-to-use, multi-platform community bot for **Discord and Telegram**
 running simultaneously from one process. AI assistant, quizzes, Coins
 economy, moderation, automated news, tickets, leveling and more — with full
 feature parity across both platforms.
 
 > **The bot is 100% free.** There is no paid tier, no premium currency and
 > no external billing. Coins are *earned* through activity and spent on
-> cosmetic roles.
+> cosmetic roles. (Free to *use*; the source is proprietary — see
+> [License](#license).)
 
 ## Features
 
@@ -188,4 +189,8 @@ registering a `CommandSpec`; it appears on both platforms automatically.
 
 ## License
 
-MIT — use it in your own community.
+Proprietary — © XESXOR, developed by D3v0o0Nu11. All rights reserved.
+
+You may deploy and run this bot for your own community and make private
+modifications, but you may not redistribute, resell, relicense, publish the
+source, or remove attribution. See [`LICENSE`](LICENSE) for the full terms.

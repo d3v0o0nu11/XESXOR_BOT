@@ -1,0 +1,82 @@
+XESXOR BOT PROPRIETARY LICENSE
+Copyright (c) 2025-2026 XESXOR. All rights reserved.
+Developed and maintained by D3v0o0Nu11.
+
+--------------------------------------------------------------------------------
+TERMS AND CONDITIONS
+
+1. OWNERSHIP
+
+   This software, including its source code, documentation, configuration,
+   architecture and all associated assets (collectively, "the Software"), is the
+   exclusive property of XESXOR ("the Owner"). The Software is authored and
+   maintained by D3v0o0Nu11 under the XESXOR brand. All intellectual property
+   rights, title and interest in and to the Software remain vested in the Owner.
+
+2. GRANT OF LICENSE
+
+   Subject to full compliance with this License, the Owner grants you a limited,
+   non-exclusive, non-transferable, revocable licence to:
+
+     (a) deploy and operate the Software for your own community, server or
+         organisation;
+     (b) view and study the source code for the purpose of operating and
+         maintaining that deployment;
+     (c) create private modifications for your own internal use.
+
+3. RESTRICTIONS
+
+   You shall NOT, without prior written permission from the Owner:
+
+     (a) sell, sublicense, rent, lease, distribute or otherwise commercially
+         exploit the Software or any derivative of it;
+     (b) publish, redistribute or make the source code available, in whole or in
+         part, to any third party;
+     (c) remove, obscure or alter this License, any copyright notice, or any
+         attribution to XESXOR or D3v0o0Nu11 contained in the Software;
+     (d) claim authorship or ownership of the Software or represent it as your
+         own product;
+     (e) use the XESXOR name, branding or logos without express written consent.
+
+   Any permitted modification remains subject to this License and must retain
+   all original attribution notices.
+
+4. THIRD-PARTY COMPONENTS
+
+   The Software incorporates third-party open-source libraries, each governed by
+   its own licence (see `requirements.txt`). Those components remain subject to
+   their respective licences, which take precedence over this License with
+   respect to those components only.
+
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. THE OWNER DOES NOT
+   WARRANT THAT THE SOFTWARE WILL BE UNINTERRUPTED, ERROR-FREE OR SECURE.
+
+6. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE OWNER OR D3v0o0Nu11 BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+   IN THE SOFTWARE, INCLUDING WITHOUT LIMITATION ANY LOSS OF DATA, REVENUE OR
+   COMMUNITY MEMBERS.
+
+7. TERMINATION
+
+   This License is effective until terminated. It terminates automatically if
+   you breach any of its terms. Upon termination you must cease all use of the
+   Software and destroy all copies in your possession.
+
+8. GOVERNING LAW
+
+   This License shall be governed by and construed in accordance with the laws
+   of the jurisdiction in which the Owner operates, without regard to conflict
+   of law provisions.
+
+--------------------------------------------------------------------------------
+For licensing enquiries, permissions or commercial use, contact the Owner
+through the official XESXOR community.
+
+XESXOR  ·  Developed by D3v0o0Nu11
