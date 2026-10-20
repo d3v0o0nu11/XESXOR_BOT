@@ -22,6 +22,8 @@ from xesxor.core.models import Violation
 BAD_WORDS: tuple[str, ...] = (
     # ---- racial / ethnic slurs ----
     "nigger", "nigga", "nigg", "niglet", "nigglet", "nignog", "niglet", "niguh",
+    # slur leetspeak / evasion variants
+    "n1gger", "n1gga", "n!gger", "n!gga", "nigg3r", "n1gg3r", "n199er", "n199a",
     "coon", "coons", "spic", "spick", "spig", "wetback", "beaner", "chink",
     "chinky", "gook", "gooky", "kike", "kikes", "raghead", "towelhead",
     "sandnigger", "sand nigger", "jigaboo", "jiggaboo", "pickaninny", "darkie",
@@ -33,6 +35,8 @@ BAD_WORDS: tuple[str, ...] = (
     "kkk", "ku klux", "aryan", "neo nazi", "neonazi",
     # ---- homophobic / transphobic slurs ----
     "faggot", "faggots", "fag", "fags", "fagot", "fagg", "faggit", "fagget",
+    # slur leetspeak / evasion variants
+    "f4g", "f4gg", "f4ggot", "f4gg0t", "fagget", "fagg0t", "f@ggot",
     "dyke", "dykes", "tranny", "trannie", "trannies", "shemale", "shemales",
     "homo", "homos", "batty boy", "battyboy", "butt pirate", "poof", "poofter",
     "shirt lifter", "fudge packer", "pillow biter", "ladyman",
@@ -72,17 +76,30 @@ NSFW_WORDS: tuple[str, ...] = (
 )
 
 #: Common profanity, behavioural warning tier (delete + notice, no slur mark).
+#: Includes letter-reduced / leetspeak evasion variants (fk, fck, sh1t, ...).
 PROFANITY_WORDS: tuple[str, ...] = (
     "fuck", "fucks", "fucked", "fucking", "fucker", "fuckers", "motherfuck",
     "motherfucker", "motherfucking", "stfu", "wtf", "ffs", "gtfo",
+    # letter-reduced / leet "fuck" variants
+    "fk", "fks", "fck", "fcks", "fcking", "fkin", "fkng", "fkn",
+    "fuk", "fuks", "fuking", "fukin", "fukk", "fuxk", "phuck", "fuq",
+    "f*ck", "f**k", "f***", "f-u-c-k", "fvck", "fku",
     "shit", "shits", "shitty", "shitting", "bullshit", "horseshit", "apeshit",
+    # "shit" variants
+    "sht", "sh1t", "shlt", "shyt", "shite",
     "bitch", "bitches", "bitchy", "bitching", "sonofabitch", "bastard",
+    # "bitch" variants
+    "b1tch", "biatch", "beyotch", "bish", "bich", "btch", "b*tch",
     "bastards", "ass", "asses", "asshole", "assholes", "asswipe", "asshat",
     "dumbass", "jackass", "badass", "smartass", "dipshit", "dumbfuck",
+    # "ass" evasion variants
+    "a55", "azz", "a$$", "ahole",
     "slut", "sluts", "slutty", "whore", "whores", "hoe", "hoes", "skank",
     "douche", "douchebag", "douchebags", "wanker", "wankers", "prick", "pricks",
     "twat", "twats", "arse", "arsehole", "bloody", "bugger", "bollocks",
     "cunt", "cunts", "cunty", "dipstick", "scumbag", "vermin", "gaylord",
+    # "cunt" variants
+    "cnt", "c*nt", "kunt", "kunts",
     "shut up", "screw you",
 )
 
