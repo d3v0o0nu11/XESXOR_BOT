@@ -221,7 +221,7 @@ def _build_quiz_cmd(svc: ServiceContainer, key: str) -> CommandSpec:
     command_name = f"quiz-{key}" if key != "it" else "quiz-it"
     return CommandSpec(
         name=command_name,
-        description=f"{category} quiz — 10/day limit, 10 Coins fee, 20 Coins reward (30s)",
+        description=f"{category} quiz — 10/day, 10 Coins fee, 20 Coins reward",
         handler=handler,
         usage=f"/{command_name}",
         aliases=(command_name.replace("-", "_"),),
