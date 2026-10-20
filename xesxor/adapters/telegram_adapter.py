@@ -21,7 +21,7 @@ from telegram import (
     InlineKeyboardMarkup,
     Update,
 )
-from telegram.constants import ChatMemberStatus
+from telegram.constants import ChatMemberStatus, ChatType
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -162,10 +162,20 @@ class TelegramAdapter:
                 await self._news_task
             except asyncio.CancelledError:
                 pass
-        if self.app.updater and self.app.updater.running:
-            await self.app.updater.stop()
-        await self.app.stop()
-        await self.app.shutdown()
+        try:
+            if self.app.updater and self.app.updater.running:
+                await self.app.updater.stop()
+        except Exception as exc:
+            logger.warning("Telegram updater stop failed: %s", exc)
+        try:
+            await self.app.stop()
+        except Exception as exc:
+            logger.warning("Telegram app stop failed: %s", exc)
+        try:
+            await self.app.shutdown()
+        except Exception as exc:
+            logger.warning("Telegram app shutdown failed: %s", exc)
+        logger.info("Telegram adapter stopped.")
 
     async def _set_command_menu(self) -> None:
         commands = [
@@ -198,7 +208,7 @@ class TelegramAdapter:
                 raise CommandError("This command requires administrator permissions.")
             if spec.guild_only and not ctx.is_group:
                 raise CommandError("This command can only be used in a group chat.")
-            args = self._parse_args(spec, update, message.text or "", message.chat_id)
+            args = await self._parse_args(spec, update, message.text or "", message.chat_id)
             await spec.handler(ctx, args)
         except CommandError as exc:
             await message.reply_text(f"⚠️ {exc.message}")
@@ -219,7 +229,7 @@ class TelegramAdapter:
             display_name=user_obj.full_name or user_obj.username or str(user_obj.id),
             raw=user_obj,
         )
-        is_private = chat.type == "chat.Type.PRIVATE"
+        is_private = chat.type == ChatType.PRIVATE
         is_admin = True
         if not is_private:
             try:
@@ -237,8 +247,7 @@ class TelegramAdapter:
             extras["scope_info"] = (
                 f"Type: {chat.type.value}\n"
                 f"ID: `{chat.id}`\n"
-                f"Members: {await self._safe_member_count(chat.id)}\n"
-                f"Created: {chat.created_date.strftime('%Y-%m-%d') if chat.created_date else 'Unknown'}"
+                f"Members: {await self._safe_member_count(chat.id)}"
             )
         return CommandContext(
             adapter=self,
@@ -260,7 +269,7 @@ class TelegramAdapter:
         except Exception:
             return "Unknown"
 
-    def _parse_args(
+    async def _parse_args(
         self, spec: CommandSpec, update: Update, text: str, chat_id: int
     ) -> dict[str, Any]:
         """Parse free-text command arguments into the spec's typed args."""
@@ -298,7 +307,7 @@ class TelegramAdapter:
                         f"Missing argument `@{param.name}` — reply to a user's message "
                         f"or pass a username/id."
                     )
-                args[param.name] = self._resolve_user_token(tokens[index], chat_id)
+                args[param.name] = await self._resolve_user_token(tokens[index], chat_id)
                 index += 1
             elif param.type == "choice":
                 if index >= len(tokens):
@@ -428,7 +437,7 @@ class TelegramAdapter:
         )
         if message.chat_id < 0:
             try:
-                await context.bot.restrict_member(
+                await context.bot.restrict_chat_member(
                     message.chat_id, user.id, permissions=FULL_PERMISSIONS
                 )
             except Exception:
@@ -448,7 +457,7 @@ class TelegramAdapter:
         )
         if chat_id < 0:  # group chat: lift the mute if we applied one
             try:
-                await self.app.bot.restrict_member(
+                await self.app.bot.restrict_chat_member(
                     chat_id, query.from_user.id, permissions=FULL_PERMISSIONS
                 )
             except Exception:
@@ -484,7 +493,7 @@ class TelegramAdapter:
     # ------------------------------------------------------------------
     async def _on_new_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
-        if message is None or message.chat.type == "chat.Type.PRIVATE":
+        if message is None or message.chat.type == ChatType.PRIVATE:
             return
         scope_id = str(message.chat_id)
         for member in message.new_chat_members or []:
@@ -493,7 +502,7 @@ class TelegramAdapter:
             self.invites.register_join(str(member.id), scope_id)
             if self.settings.telegram_require_verify:
                 try:
-                    await context.bot.restrict_member(
+                    await context.bot.restrict_chat_member(
                         message.chat_id, member.id, permissions=MUTED_PERMISSIONS
                     )
                     await message.reply_text(
@@ -503,12 +512,20 @@ class TelegramAdapter:
                 except Exception as exc:
                     logger.warning("Could not restrict new member %s: %s", member.id, exc)
 
+    async def _delete_later(self, chat_id: int, message_id: int, delay: int) -> None:
+        """Delete a message after ``delay`` seconds (best-effort)."""
+        await asyncio.sleep(delay)
+        try:
+            await self.app.bot.delete_message(chat_id, message_id)
+        except Exception:
+            pass
+
     async def _on_group_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         user = update.effective_user
         if message is None or user is None or user.is_bot:
             return
-        if message.chat.type == "chat.Type.PRIVATE":
+        if message.chat.type == ChatType.PRIVATE:
             return
 
         member = None
@@ -528,13 +545,25 @@ class TelegramAdapter:
             if violation:
                 try:
                     await message.delete()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Automod delete failed: %s", exc)
                 if violation.action == "delete_notify" and violation.notice:
+                    safe_name = (
+                        user.full_name.replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                    )
+                    mention = f'<a href="tg://user?id={user.id}">{safe_name}</a>'
                     try:
-                        await message.reply_text(f"🚨 {violation.notice}")
-                    except Exception:
-                        pass
+                        notice = await message.reply_text(
+                            f"🚨 {mention} {violation.notice}",
+                            parse_mode="HTML",
+                        )
+                        asyncio.create_task(
+                            self._delete_later(message.chat_id, notice.message_id, 10)
+                        )
+                    except Exception as exc:
+                        logger.warning("Automod notice failed: %s", exc)
                 return
 
         self.container.economy.ensure_user(str(user.id), str(message.chat_id))
@@ -568,7 +597,7 @@ class TelegramAdapter:
         # Telegram has no true ephemeral messages; /ask previews are simply
         # replaced by the answer in the same chat.
         try:
-            await message.reply_text(text, quote=False)
+            await message.reply_text(text)
         except Exception as exc:
             logger.warning("Telegram reply failed: %s", exc)
 
@@ -595,9 +624,14 @@ class TelegramAdapter:
             f"({quiz.remaining_today} left) • Fee: {quiz.fee:.0f} Coins → "
             f"Win: {quiz.reward:.0f} Coins"
         )
-        await message.reply_text(text, reply_markup=keyboard, quote=False)
+        await message.reply_text(text, reply_markup=keyboard)
 
     async def delete_messages(self, ctx: CommandContext, amount: int) -> int:
+        # The Bot API has no "read history" endpoint, so we cannot scan past
+        # messages.  Telegram message ids are sequential within a chat, so we
+        # delete the contiguous id range ending at (and including) the command
+        # message.  Message ids that no longer exist are simply ignored by the
+        # API, and ids older than 48h are rejected unless the bot is an admin.
         update: Update = ctx.raw
         message = update.effective_message
         if message is None or not ctx.is_group:
@@ -605,28 +639,27 @@ class TelegramAdapter:
         chat_id = message.chat_id
         try:
             status = await self.app.bot.get_chat_member(chat_id, self.app.bot.id)
-            can_delete = (
-                status.status == ChatMemberStatus.ADMINISTRATOR
-                and bool(status.can_delete_messages)
+            is_admin = status.status in (
+                ChatMemberStatus.ADMINISTRATOR,
+                ChatMemberStatus.OWNER,
             )
         except Exception:
-            can_delete = False
-        deleted = 0
-        try:
-            history = await self.app.bot.get_chat_history(chat_id, limit=min(amount, 100))
-        except Exception as exc:
-            logger.warning("get_chat_history failed: %s", exc)
+            is_admin = False
+        if not is_admin:
             return 0
-        for old in history:
-            if deleted >= amount:
-                break
-            owned_by_bot = old.from_user and old.from_user.id == self.app.bot.id
-            if can_delete or owned_by_bot:
-                try:
-                    await self.app.bot.delete_messages(chat_id, [old.message_id])
-                    deleted += 1
-                except Exception:
-                    pass
+
+        end_id = message.message_id
+        start_id = max(1, end_id - amount + 1)
+        ids = list(range(start_id, end_id + 1))
+        deleted = 0
+        # deleteMessages accepts up to 100 ids per call.
+        for offset in range(0, len(ids), 100):
+            chunk = ids[offset : offset + 100]
+            try:
+                await self.app.bot.delete_messages(chat_id, chunk)
+                deleted += len(chunk)
+            except Exception as exc:
+                logger.warning("Telegram delete_messages chunk failed: %s", exc)
         return deleted
 
     async def apply_member_action(
@@ -643,7 +676,7 @@ class TelegramAdapter:
                 await self.app.bot.unban_chat_member(message.chat_id, target_id)
             elif action == "timeout":
                 until = datetime.now(timezone.utc).timestamp() + (hours or 1) * 3600
-                await self.app.bot.restrict_member(
+                await self.app.bot.restrict_chat_member(
                     message.chat_id, target_id, permissions=MUTED_PERMISSIONS, until_date=int(until)
                 )
             else:

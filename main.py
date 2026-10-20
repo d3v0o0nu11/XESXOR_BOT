@@ -77,22 +77,34 @@ async def run() -> None:
         except NotImplementedError:  # pragma: no cover - non-POSIX
             pass
 
-    # Start every adapter concurrently; one platform failing must not
-    # prevent the other from running.
-    results = await asyncio.gather(
-        *(_start_adapter(adapter) for adapter in adapters),
-        return_exceptions=True,
-    )
-    for adapter, result in zip(adapters, results):
-        if isinstance(result, BaseException):
-            logger.error(
-                "Adapter %s failed to start: %s", getattr(adapter, "name", "?"), result
-            )
-    started = [
-        adapter for adapter, result in zip(adapters, results)
-        if not isinstance(result, BaseException)
-    ]
+    # Start every adapter concurrently.  Some drivers (discord.py's
+    # ``Client.start``) block for the whole lifetime of the connection, so we
+    # run each in its own task instead of awaiting them to completion.  We give
+    # each task a short window to surface an immediate startup failure, then
+    # treat the rest as running.
+    started: list = []
+    tasks: dict[asyncio.Task, object] = {}
+    for adapter in adapters:
+        task = asyncio.create_task(_start_adapter(adapter))
+        tasks[task] = adapter
+
+    await asyncio.sleep(5)
+    for task, adapter in list(tasks.items()):
+        name = getattr(adapter, "name", "?")
+        if task.done():
+            exc = task.exception()
+            if exc is not None:
+                logger.error("Adapter %s failed to start: %s", name, exc)
+            elif not getattr(adapter, "is_running", lambda: True)():
+                logger.error("Adapter %s exited immediately.", name)
+            else:
+                started.append(adapter)
+        else:
+            started.append(adapter)
+
     if not started:
+        for task in tasks:
+            task.cancel()
         database.close()
         raise SystemExit("No platform adapter could be started.")
 
@@ -105,15 +117,35 @@ async def run() -> None:
         await stop_event.wait()
         logger.info("Shutdown signal received.")
     finally:
-        # Stop in reverse start order.
+        # Stop in reverse start order.  Each adapter gets a bounded window so a
+        # misbehaving platform can never block the process from exiting (which
+        # would leave systemd stuck in "deactivating" on restart).
+        async def _stop_one(adapter) -> None:
+            if hasattr(adapter, "stop"):
+                await adapter.stop()
+            else:
+                await adapter.close()
+
         for adapter in reversed(started):
+            name = getattr(adapter, "name", "?")
             try:
-                if hasattr(adapter, "stop"):
-                    await adapter.stop()
-                else:
-                    await adapter.close()
+                await asyncio.wait_for(_stop_one(adapter), timeout=15)
+            except asyncio.TimeoutError:
+                logger.warning("Timed out stopping adapter %s; forcing shutdown.", name)
             except Exception:
-                logger.exception("Error stopping adapter %s", getattr(adapter, "name", "?"))
+                logger.exception("Error stopping adapter %s", name)
+        # Cancel any adapter task that is still alive (e.g. a timed-out one).
+        for task, adapter in tasks.items():
+            if not task.done():
+                logger.warning("Cancelling lingering task for %s", getattr(adapter, "name", "?"))
+                task.cancel()
+        if tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True), timeout=5
+                )
+            except asyncio.TimeoutError:
+                pass
         database.close()
         logger.info("Shutdown complete.")
 

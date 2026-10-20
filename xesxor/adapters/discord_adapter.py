@@ -926,7 +926,8 @@ class DiscordAdapter(commands.Bot):
                 if violation.action == "delete_notify" and violation.notice:
                     try:
                         await message.channel.send(
-                            f"🚨 {message.author.mention} {violation.notice}", delete_after=10
+                            f"🚨 {message.author.mention} {violation.notice}",
+                            delete_after=10,
                         )
                     except Exception:
                         pass
