@@ -64,6 +64,10 @@ class Settings:
     log_level: str = "INFO"
     port: int = 10000
     keep_alive_enabled: bool = True
+    # Interface the keep-alive web server binds to.  Defaults to localhost so
+    # the status endpoint is never reachable from the internet; set to
+    # 0.0.0.0 only on free-tier hosts that need external pings.
+    keep_alive_host: str = "127.0.0.1"
 
     # --- Discord behaviour ----------------------------------------------
     # When True the bot bootstraps its full server layout (roles, channels,
@@ -106,6 +110,7 @@ class Settings:
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
             port=_get_int("PORT", 10000),
             keep_alive_enabled=_get_bool("KEEP_ALIVE_ENABLED", True),
+            keep_alive_host=os.getenv("KEEP_ALIVE_HOST", "127.0.0.1").strip() or "127.0.0.1",
             discord_auto_setup=_get_bool("DISCORD_AUTO_SETUP", False),
             telegram_admin_ids=_get_int_tuple("TELEGRAM_ADMIN_IDS"),
             telegram_news_chat_ids=_get_int_tuple("TELEGRAM_NEWS_CHAT_IDS"),

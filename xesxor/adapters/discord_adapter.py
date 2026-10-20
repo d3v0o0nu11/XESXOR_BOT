@@ -1082,9 +1082,10 @@ class DiscordAdapter(commands.Bot):
         )
         self._web_runner = web.AppRunner(app)
         await self._web_runner.setup()
-        site = web.TCPSite(self._web_runner, "0.0.0.0", self.settings.port)
+        host = self.settings.keep_alive_host
+        site = web.TCPSite(self._web_runner, host, self.settings.port)
         await site.start()
-        logger.info("Keep-alive web server on port %d", self.settings.port)
+        logger.info("Keep-alive web server on %s:%d", host, self.settings.port)
 
     async def _self_ping_loop(self) -> None:
         """Ping ourselves so free-tier hosts do not idle-sleep."""

@@ -11,6 +11,9 @@ services:
       - "${PORT:-10000}:10000"
     environment:
       - DATABASE_PATH=/app/data/bot_database.db
+      # Inside a container the server must bind all interfaces for the
+      # published port to work; the host mapping below controls exposure.
+      - KEEP_ALIVE_HOST=0.0.0.0
     logging:
       driver: json-file
       options:

@@ -116,6 +116,7 @@ simultaneously from the same process and share one economy database.
 | `DATABASE_PATH` | `bot_database.db` | SQLite file location |
 | `LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
 | `PORT` | `10000` | Keep-alive HTTP port |
+| `KEEP_ALIVE_HOST` | `127.0.0.1` | Interface for the keep-alive server (localhost = private) |
 | `KEEP_ALIVE_ENABLED` | `true` | Self-ping server for free-tier hosts |
 | `DISCORD_AUTO_SETUP` | `false` | Bootstrap full server layout in every joined guild |
 | `TELEGRAM_ADMIN_IDS` | — | Extra Telegram user ids treated as admins |
@@ -128,6 +129,37 @@ Secrets are only ever read from the environment; log output automatically
 redacts anything token-shaped.  `DISCORD_AUTO_SETUP=true` is **not**
 recommended for public deployments — it rewrites channel permissions in
 every guild the bot joins.
+
+## Security
+
+The bot is built to run as an unprivileged process and to keep credentials
+out of logs and out of the source tree.
+
+* **No hardcoded secrets.** Tokens are read from the environment (`.env`)
+  only, with loud, token-shaped redaction applied to every log record, so a
+  secret embedded in an exception message is masked before it is written.
+* **Least privilege.** The shipped systemd unit enables `NoNewPrivileges`,
+  `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`,
+  `SystemCallFilter=@system-service` and a whitelisted
+  `ReadWritePaths=/opt/xesxor-bot`, so a compromised dependency cannot write
+  outside the bot directory or escalate.
+* **Private keep-alive.** The keep-alive status server binds `127.0.0.1` by
+  default (`KEEP_ALIVE_HOST`). Set it to `0.0.0.0` only inside a container
+  or on a free-tier host that needs external pings.
+* **`.env` hygiene.** `.env` and SQLite files are git-ignored; the file is
+  created mode `0600`. Rotate tokens immediately if one is ever pasted into
+  a chat, log, or commit — treat them as public the moment they are.
+
+### Hardening checklist for a VPS / EC2
+
+1. `chmod 600 .env` and never commit it (it is already in `.gitignore`).
+2. Restrict the instance security group: allow only `22` from your IP, and
+   `80`/`443` only if the host also serves a website. The bot needs **no
+   inbound ports** of its own.
+3. Keep the systemd sandbox directives from `deploy/xesxor-bot.service`.
+4. Rotate platform tokens after any accidental exposure (Discord Developer
+   Portal → Reset Token; BotFather → `/revoke` for Telegram; regenerate the
+   AI key).
 
 ## Deployment
 
