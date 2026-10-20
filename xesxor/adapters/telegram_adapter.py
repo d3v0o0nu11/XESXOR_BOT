@@ -545,6 +545,10 @@ class TelegramAdapter:
             if violation:
                 try:
                     await message.delete()
+                    logger.info(
+                        "Automod deleted message %s in %s (rule=%s)",
+                        message.message_id, message.chat_id, violation.rule,
+                    )
                 except Exception as exc:
                     logger.warning("Automod delete failed: %s", exc)
                 if violation.action == "delete_notify" and violation.notice:
@@ -555,9 +559,11 @@ class TelegramAdapter:
                     )
                     mention = f'<a href="tg://user?id={user.id}">{safe_name}</a>'
                     try:
-                        notice = await message.reply_text(
-                            f"🚨 {mention} {violation.notice}",
+                        notice = await self.app.bot.send_message(
+                            chat_id=message.chat_id,
+                            text=f"🚨 {mention} {violation.notice}",
                             parse_mode="HTML",
+                            message_thread_id=message.message_thread_id,
                         )
                         asyncio.create_task(
                             self._delete_later(message.chat_id, notice.message_id, 10)
